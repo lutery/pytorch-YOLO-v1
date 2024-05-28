@@ -225,6 +225,8 @@ def resnet34(pretrained=False, **kwargs):
 def resnet50(pretrained=False, **kwargs):
     """Constructs a ResNet-50 model.
 
+    todo 描述这里的resetnet模型和原版resnet模型的区别
+
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """

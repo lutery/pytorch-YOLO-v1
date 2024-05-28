@@ -17,6 +17,7 @@ import numpy as np
 
 use_gpu = torch.cuda.is_available()
 
+# 数据集路径
 file_root = '/home/xzh/data/VOCdevkit/VOC2012/allimgs/'
 learning_rate = 0.001
 num_epochs = 50
