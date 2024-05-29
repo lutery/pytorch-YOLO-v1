@@ -105,23 +105,41 @@ class yoloDataset(data.Dataset):
         boxes (tensor) [[x1,y1,x2,y2],[]]
         labels (tensor) [...]
         return 7x7x30
+
+        从这里可以看出，yolov1每个grid cell仅预测两个目标
         '''
+        # 网格的数量，即图像被划分成的网格数 todo 这里的14是否有问题，不是7x7网格吗
         grid_num = 14
+        # 30 = [2 * [中心点，长宽，置信度], 20个分类的one-hot编码] 创建一个全零张量，用于存储编码后的目标信息
         target = torch.zeros((grid_num,grid_num,30))
+        # 网格尺寸归一化后，每个小网格的尺寸
         cell_size = 1./grid_num
+        # 计算真实目标的归一化长宽尺寸
         wh = boxes[:,2:]-boxes[:,:2]
+        # 计算真实目标的归一化中心点坐标
         cxcy = (boxes[:,2:]+boxes[:,:2])/2
+        # 遍历当前图片中的所有目标
         for i in range(cxcy.size()[0]):
+            # 计算目标框中心点所在的网格索引，也就是第几个网格
             cxcy_sample = cxcy[i]
-            ij = (cxcy_sample/cell_size).ceil()-1 #
+            ij = (cxcy_sample/cell_size).ceil()-1
+            # 在目标框中心所在的网格的第 5 个通道位置标记为目标存在，也就是置信度为1
             target[int(ij[1]),int(ij[0]),4] = 1
+            # 在目标框中心所在的网格的第 10 个通道位置标记为目标存在，也就是置信度为1 todo 两个置信度都为1，会有问题吗
             target[int(ij[1]),int(ij[0]),9] = 1
+            # 标记目标的类别
             target[int(ij[1]),int(ij[0]),int(labels[i])+9] = 1
+            # 计算目标框的在归一化后的网格坐标
             xy = ij*cell_size #匹配到的网格的左上角相对坐标
+            #  计算目标框中心点相对于所在网格左上角的偏移量。
             delta_xy = (cxcy_sample -xy)/cell_size
+            # 存储目标框的宽度和高度
             target[int(ij[1]),int(ij[0]),2:4] = wh[i]
+            # 存储目标框中心点相对于所在网格左上角的偏移量
             target[int(ij[1]),int(ij[0]),:2] = delta_xy
+            # 存储目标框的宽度和高度
             target[int(ij[1]),int(ij[0]),7:9] = wh[i]
+            # 存储目标框中心点相对于所在网格左上角的偏移量
             target[int(ij[1]),int(ij[0]),5:7] = delta_xy
         return target
     def BGR2RGB(self,img):
