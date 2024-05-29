@@ -47,16 +47,20 @@ print(net)
 #net.load_state_dict(torch.load('yolo.pth'))
 print('load pre-trined model')
 if use_resnet:
+    # 这里使用的torch内置的resnet模型
     resnet = models.resnet50(pretrained=True)
     new_state_dict = resnet.state_dict()
     dd = net.state_dict()
     for k in new_state_dict.keys():
         print(k)
+        # 将预训练模型中的非fc层拷贝到yolo 骨干resnet中
+        # 这里可以知道如何进行迁移学习
         if k in dd.keys() and not k.startswith('fc'):
             print('yes')
             dd[k] = new_state_dict[k]
     net.load_state_dict(dd)
 else:
+    # 这里也是加载vgg16预训练模型
     vgg = models.vgg16_bn(pretrained=True)
     new_state_dict = vgg.state_dict()
     dd = net.state_dict()
@@ -67,6 +71,7 @@ else:
             dd[k] = new_state_dict[k]
     net.load_state_dict(dd)
 if False:
+    # 不使用预训练模型
     net.load_state_dict(torch.load('best.pth'))
 print('cuda', torch.cuda.current_device(), torch.cuda.device_count())
 
@@ -74,11 +79,14 @@ criterion = yoloLoss(7,2,5,0.5)
 if use_gpu:
     net.cuda()
 
+# 切换训练模式
 net.train()
 # different learning rate
 params=[]
+# 获取网络所有的参数以及参数名字
 params_dict = dict(net.named_parameters())
 for key,value in params_dict.items():
+    # todo 这里为啥要单独设置学习率，且还是*1，感觉没啥用
     if key.startswith('features'):
         params += [{'params':[value],'lr':learning_rate*1}]
     else:
