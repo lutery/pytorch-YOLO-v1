@@ -8,7 +8,16 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 class yoloLoss(nn.Module):
+    '''
+    创建yolo损失
+    '''
     def __init__(self,S,B,l_coord,l_noobj):
+        '''
+        param S： todo
+        param B: todo
+        param l_coord： todo
+        param l_noobj: todo
+        '''
         super(yoloLoss,self).__init__()
         self.S = S
         self.B = B
