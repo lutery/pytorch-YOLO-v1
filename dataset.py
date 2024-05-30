@@ -22,6 +22,13 @@ import matplotlib.pyplot as plt
 class yoloDataset(data.Dataset):
     image_size = 448
     def __init__(self,root,list_file,train,transform):
+        '''
+        root: 数据集根目录
+        list_file: 数据集列表文件（存储图片文件以及图片目标位置的信息）
+        train: 是否为训练数据集
+        transform: 图片预处理
+        '''
+
         print('data init')
         self.root=root
         self.train = train
@@ -32,6 +39,7 @@ class yoloDataset(data.Dataset):
         self.mean = (123,117,104)#RGB
 
         if isinstance(list_file, list):
+            # 这里将多个数据集的图片对象数据信息合并到一个文件中
             # Cat multiple list files together.
             # This is especially useful for voc07/voc12 combination.
             tmp_file = '/tmp/listfile.txt'
@@ -41,9 +49,15 @@ class yoloDataset(data.Dataset):
         with open(list_file) as f:
             lines  = f.readlines()
 
+        # 遍历所有图片路径以及对象信息（lx,ly,rx,ry,类型）
+        # self.fnames 存储所有图片路径
+        # self.boxes 存储所有图片的目标位置信息
+        # self.labels 存储所有图片的目标类别信息
+        # self.num_samples 存储总共的目标数量
         for line in lines:
             splited = line.strip().split()
             self.fnames.append(splited[0])
+            # 有多少个目标
             num_boxes = (len(splited) - 1) // 5
             box=[]
             label=[]

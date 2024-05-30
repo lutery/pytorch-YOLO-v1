@@ -95,6 +95,7 @@ optimizer = torch.optim.SGD(params, lr=learning_rate, momentum=0.9, weight_decay
 # optimizer = torch.optim.Adam(net.parameters(),lr=learning_rate,weight_decay=1e-4)
 
 # train_dataset = yoloDataset(root=file_root,list_file=['voc12_trainval.txt','voc07_trainval.txt'],train=True,transform = [transforms.ToTensor()] )
+# 这边是写死了读取voc2012和voc2007的数据集
 train_dataset = yoloDataset(root=file_root,list_file=['voc2012.txt','voc2007.txt'],train=True,transform = [transforms.ToTensor()] )
 train_loader = DataLoader(train_dataset,batch_size=batch_size,shuffle=True,num_workers=4)
 # test_dataset = yoloDataset(root=file_root,list_file='voc07_test.txt',train=False,transform = [transforms.ToTensor()] )
