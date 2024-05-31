@@ -111,6 +111,7 @@ best_test_loss = np.inf
 
 for epoch in range(num_epochs):
     net.train()
+    # 这边在手动调整学习率？估计是进行超参数调整
     # if epoch == 1:
     #     learning_rate = 0.0005
     # if epoch == 2:
@@ -131,6 +132,7 @@ for epoch in range(num_epochs):
     total_loss = 0.
     
     for i,(images,target) in enumerate(train_loader):
+        # 貌似新版本不需要这里用Variable
         images = Variable(images)
         target = Variable(target)
         if use_gpu:
