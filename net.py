@@ -25,10 +25,12 @@ model_urls = {
 
 class VGG(nn.Module):
 
-    def __init__(self, features, num_classes=1000, image_size=448):
+    def __init__(self, features, num_classes=221, image_size=448):
         super(VGG, self).__init__()
         self.features = features
         self.image_size = image_size
+        self.num_classes = num_classes
+        self.predict_count = self.num_classes + 10
         # self.classifier = nn.Sequential(
         #     nn.Linear(512 * 7 * 7, 4096),
         #     nn.ReLU(True),
@@ -59,7 +61,7 @@ class VGG(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
         x = F.sigmoid(x) #归一化到0-1
-        x = x.view(-1,7,7,30)
+        x = x.view(-1,7,7,self.predict_count)
         return x
 
     def _initialize_weights(self):

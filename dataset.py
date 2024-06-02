@@ -6,9 +6,9 @@
 txt描述文件 image_name.jpg x y w h c x y w h c 这样就是说一张图片中有两个目标
 '''
 import os
+import tempfile
 import sys
 import os.path
-
 import random
 import numpy as np
 
@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 class yoloDataset(data.Dataset):
     image_size = 448
-    def __init__(self,root,list_file,train,transform):
+    def __init__(self,root,list_file,train,catetory_path,transform):
         '''
         root: 数据集根目录
         list_file: 数据集列表文件（存储图片文件以及图片目标位置的信息）
@@ -36,18 +36,31 @@ class yoloDataset(data.Dataset):
         self.fnames = []
         self.boxes = []
         self.labels = []
+        self.category_2_id = []
+        self.id_2_category = []
         self.mean = (123,117,104)#RGB
 
         if isinstance(list_file, list):
             # 这里将多个数据集的图片对象数据信息合并到一个文件中
             # Cat multiple list files together.
             # This is especially useful for voc07/voc12 combination.
-            tmp_file = '/tmp/listfile.txt'
-            os.system('cat %s > %s' % (' '.join(list_file), tmp_file))
+            import tempfile
+            import os
+
+            tmp_file = os.path.join(tempfile.gettempdir(), 'listfile.txt')
+            if os.name == 'posix':  # Linux
+                os.system('cat %s > %s' % (' '.join(list_file), tmp_file))
+            elif os.name == 'nt':  # Windows
+                os.system('type %s > %s' % (' '.join(list_file), tmp_file))
             list_file = tmp_file
 
         with open(list_file) as f:
             lines  = f.readlines()
+
+        with open(catetory_path) as f:
+            catetorys = f.readlines()
+            self.category_2_id = {catetory.strip():idx for idx,catetory in enumerate(catetorys)}
+            self.id_2_category = {idx:catetory.strip() for idx,catetory in enumerate(catetorys)}
 
         # 遍历所有图片路径以及对象信息（lx,ly,rx,ry,类型）
         # self.fnames 存储所有图片路径
@@ -75,7 +88,7 @@ class yoloDataset(data.Dataset):
 
     def __getitem__(self,idx):
         fname = self.fnames[idx]
-        img = cv2.imread(os.path.join(self.root+fname))
+        img = cv2.imread(os.path.join(self.root,fname))
         boxes = self.boxes[idx].clone()
         labels = self.labels[idx].clone()
 
@@ -125,7 +138,7 @@ class yoloDataset(data.Dataset):
         # 网格的数量，即图像被划分成的网格数 todo 这里的14是否有问题，不是7x7网格吗
         grid_num = 14
         # 30 = [2 * [中心点，长宽，置信度], 20个分类的one-hot编码] 创建一个全零张量，用于存储编码后的目标信息
-        target = torch.zeros((grid_num,grid_num,30))
+        target = torch.zeros(grid_num,grid_num,len(self.id_2_category.keys())+10)
         # 网格尺寸归一化后，每个小网格的尺寸
         cell_size = 1./grid_num
         # 计算真实目标的归一化长宽尺寸
@@ -299,12 +312,13 @@ class yoloDataset(data.Dataset):
             im = im * alpha + random.randrange(-delta,delta)
             im = im.clip(min=0,max=255).astype(np.uint8)
         return im
+    
 
 def main():
     from torch.utils.data import DataLoader
     import torchvision.transforms as transforms
-    file_root = '/home/xzh/data/VOCdevkit/VOC2012/allimgs/'
-    train_dataset = yoloDataset(root=file_root,list_file='voc12_trainval.txt',train=True,transform = [transforms.ToTensor()] )
+    file_root = r'F:\Projects\datasets\oc\TK100\data'
+    train_dataset = yoloDataset(root=file_root,list_file='tk100-test.txt',train=True,catetory_path='tk100-catetory.txt',transform = [transforms.ToTensor()])
     train_loader = DataLoader(train_dataset,batch_size=1,shuffle=False,num_workers=0)
     train_iter = iter(train_loader)
     for i in range(100):

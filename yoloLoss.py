@@ -11,7 +11,7 @@ class yoloLoss(nn.Module):
     '''
     创建yolo损失
     '''
-    def __init__(self,S,B,l_coord,l_noobj):
+    def __init__(self,S,B,l_coord,l_noobj, category_count):
         '''
         param S： todo
         param B: todo
@@ -23,6 +23,7 @@ class yoloLoss(nn.Module):
         self.B = B
         self.l_coord = l_coord
         self.l_noobj = l_noobj
+        self.category_count = category_count + 10
 
     def compute_iou(self, box1, box2):
         '''Compute the intersection over union of two set of boxes, each box is [x1,y1,x2,y2].
@@ -58,8 +59,8 @@ class yoloLoss(nn.Module):
         return iou
     def forward(self,pred_tensor,target_tensor):
         '''
-        pred_tensor: (tensor) size(batchsize,S,S,Bx5+20=30) [x,y,w,h,c]
-        target_tensor: (tensor) size(batchsize,S,S,30)
+        pred_tensor: (tensor) size(batchsize,S,S,Bx5+20=self.category_count) [x,y,w,h,c]
+        target_tensor: (tensor) size(batchsize,S,S,self.category_count)
         '''
         N = pred_tensor.size()[0]
         coo_mask = target_tensor[:,:,:,4] > 0
@@ -67,28 +68,28 @@ class yoloLoss(nn.Module):
         coo_mask = coo_mask.unsqueeze(-1).expand_as(target_tensor)
         noo_mask = noo_mask.unsqueeze(-1).expand_as(target_tensor)
 
-        coo_pred = pred_tensor[coo_mask].view(-1,30)
+        coo_pred = pred_tensor[coo_mask].view(-1,self.category_count)
         box_pred = coo_pred[:,:10].contiguous().view(-1,5) #box[x1,y1,w1,h1,c1]
         class_pred = coo_pred[:,10:]                       #[x2,y2,w2,h2,c2]
         
-        coo_target = target_tensor[coo_mask].view(-1,30)
+        coo_target = target_tensor[coo_mask].view(-1,self.category_count)
         box_target = coo_target[:,:10].contiguous().view(-1,5)
         class_target = coo_target[:,10:]
 
         # compute not contain obj loss
-        noo_pred = pred_tensor[noo_mask].view(-1,30)
-        noo_target = target_tensor[noo_mask].view(-1,30)
-        noo_pred_mask = torch.cuda.ByteTensor(noo_pred.size())
+        noo_pred = pred_tensor[noo_mask].view(-1,self.category_count)
+        noo_target = target_tensor[noo_mask].view(-1,self.category_count)
+        noo_pred_mask = torch.cuda.BoolTensor(noo_pred.size())
         noo_pred_mask.zero_()
         noo_pred_mask[:,4]=1;noo_pred_mask[:,9]=1
         noo_pred_c = noo_pred[noo_pred_mask] #noo pred只需要计算 c 的损失 size[-1,2]
         noo_target_c = noo_target[noo_pred_mask]
-        nooobj_loss = F.mse_loss(noo_pred_c,noo_target_c,size_average=False)
+        nooobj_loss = F.mse_loss(noo_pred_c,noo_target_c,reduction='sum')
 
         #compute contain obj loss
-        coo_response_mask = torch.cuda.ByteTensor(box_target.size())
+        coo_response_mask = torch.cuda.BoolTensor(box_target.size())
         coo_response_mask.zero_()
-        coo_not_response_mask = torch.cuda.ByteTensor(box_target.size())
+        coo_not_response_mask = torch.cuda.BoolTensor(box_target.size())
         coo_not_response_mask.zero_()
         box_target_iou = torch.zeros(box_target.size()).cuda()
         for i in range(0,box_target.size()[0],2): #choose the best iou box
@@ -118,19 +119,19 @@ class yoloLoss(nn.Module):
         box_pred_response = box_pred[coo_response_mask].view(-1,5)
         box_target_response_iou = box_target_iou[coo_response_mask].view(-1,5)
         box_target_response = box_target[coo_response_mask].view(-1,5)
-        contain_loss = F.mse_loss(box_pred_response[:,4],box_target_response_iou[:,4],size_average=False)
-        loc_loss = F.mse_loss(box_pred_response[:,:2],box_target_response[:,:2],size_average=False) + F.mse_loss(torch.sqrt(box_pred_response[:,2:4]),torch.sqrt(box_target_response[:,2:4]),size_average=False)
+        contain_loss = F.mse_loss(box_pred_response[:,4],box_target_response_iou[:,4],reduction='sum')
+        loc_loss = F.mse_loss(box_pred_response[:,:2],box_target_response[:,:2],reduction='sum') + F.mse_loss(torch.sqrt(box_pred_response[:,2:4]),torch.sqrt(box_target_response[:,2:4]),reduction='sum')
         #2.not response loss
         box_pred_not_response = box_pred[coo_not_response_mask].view(-1,5)
         box_target_not_response = box_target[coo_not_response_mask].view(-1,5)
         box_target_not_response[:,4]= 0
-        #not_contain_loss = F.mse_loss(box_pred_response[:,4],box_target_response[:,4],size_average=False)
+        #not_contain_loss = F.mse_loss(box_pred_response[:,4],box_target_response[:,4],reduction='sum')
         
         #I believe this bug is simply a typo
-        not_contain_loss = F.mse_loss(box_pred_not_response[:,4], box_target_not_response[:,4],size_average=False)
+        not_contain_loss = F.mse_loss(box_pred_not_response[:,4], box_target_not_response[:,4],reduction='sum')
 
         #3.class loss
-        class_loss = F.mse_loss(class_pred,class_target,size_average=False)
+        class_loss = F.mse_loss(class_pred,class_target,reduction='sum')
 
         return (self.l_coord*loc_loss + 2*contain_loss + not_contain_loss + self.l_noobj*nooobj_loss + class_loss)/N
 

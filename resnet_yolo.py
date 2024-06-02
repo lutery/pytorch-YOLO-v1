@@ -125,7 +125,7 @@ class detnet_bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, num_classes=1470):
+    def __init__(self, block, layers, num_classes=221):
         self.inplanes = 64
         super(ResNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
@@ -141,8 +141,8 @@ class ResNet(nn.Module):
         self.layer5 = self._make_detnet_layer(in_channels=2048)
         # self.avgpool = nn.AvgPool2d(14) #fit 448 input size
         # self.fc = nn.Linear(512 * block.expansion, num_classes)
-        self.conv_end = nn.Conv2d(256, 30, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn_end = nn.BatchNorm2d(30)
+        self.conv_end = nn.Conv2d(256, num_classes + 10, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn_end = nn.BatchNorm2d(num_classes + 10)
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
