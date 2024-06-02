@@ -3,7 +3,7 @@
 import json
 import numpy as np
 
-json_file_path = ""
+json_file_path = r"F:\Projects\datasets\oc\TK100\data\annotations.json"
 with open(json_file_path, "r") as file:
     json_data = json.load(file)
 
@@ -32,7 +32,7 @@ for img_id, img_info in json_data["imgs"].items():
         class_id = category_to_id[obj["category"]]
 
         # 添加到行数据中
-        yolo_data_line += f" {x1} {y1} {x2} {y2} {class_id}"
+        yolo_data_line += f" {int(x1)} {int(y1)} {int(x2)} {int(y2)} {int(class_id)}"
 
     # 将完整的行添加到列表中
     yolo_format_data.append(yolo_data_line)
