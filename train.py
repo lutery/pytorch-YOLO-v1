@@ -73,9 +73,9 @@ def train():
                 print('yes')
                 dd[k] = new_state_dict[k]
         net.load_state_dict(dd)
-    if False:
+    if True:
         # 不使用预训练模型
-        net.load_state_dict(torch.load('best.pth'))
+        net.load_state_dict(torch.load('yolo.pth'))
     print('cuda', torch.cuda.current_device(), torch.cuda.device_count())
 
     criterion = yoloLoss(7,2,5,0.5,221)
@@ -110,9 +110,9 @@ def train():
 
     num_iter = 0
     vis = Visualizer(env='xiong')
-    best_test_loss = np.inf
+    best_test_loss = 3
 
-    for epoch in range(num_epochs):
+    for epoch in range(38, num_epochs):
         net.train()
         # 这边在手动调整学习率？估计是进行超参数调整
         # if epoch == 1:
@@ -121,9 +121,9 @@ def train():
         #     learning_rate = 0.00075
         # if epoch == 3:
         #     learning_rate = 0.001
-        if epoch == 30:
+        if epoch >= 30:
             learning_rate=0.0001
-        if epoch == 40:
+        if epoch >= 40:
             learning_rate=0.00001
         # optimizer = torch.optim.SGD(net.parameters(),lr=learning_rate*0.1,momentum=0.9,weight_decay=1e-4)
         for param_group in optimizer.param_groups:
