@@ -17,6 +17,7 @@ class yoloLoss(nn.Module):
         param B: todo
         param l_coord： todo
         param l_noobj: todo
+        param category_count: 分类数
         '''
         super(yoloLoss,self).__init__()
         self.S = S
@@ -59,12 +60,12 @@ class yoloLoss(nn.Module):
         return iou
     def forward(self,pred_tensor,target_tensor):
         '''
-        pred_tensor: (tensor) size(batchsize,S,S,Bx5+20=self.category_count) [x,y,w,h,c]
+        pred_tensor: (tensor) size(batchsize,S,S,Bx5+self.category_count) [x,y,w,h,c]
         target_tensor: (tensor) size(batchsize,S,S,self.category_count)
         '''
-        N = pred_tensor.size()[0]
-        coo_mask = target_tensor[:,:,:,4] > 0
-        noo_mask = target_tensor[:,:,:,4] == 0
+        N = pred_tensor.size()[0] # 获取批次大小
+        coo_mask = target_tensor[:,:,:,4] > 0 # 获取target中所有置信度大于0的boolean矩阵
+        noo_mask = target_tensor[:,:,:,4] == 0 # 获取target中所有置信度等于0的boolean矩阵
         coo_mask = coo_mask.unsqueeze(-1).expand_as(target_tensor)
         noo_mask = noo_mask.unsqueeze(-1).expand_as(target_tensor)
 
