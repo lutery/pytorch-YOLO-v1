@@ -64,15 +64,21 @@ class yoloLoss(nn.Module):
         target_tensor: (tensor) size(batchsize,S,S,self.category_count)
         '''
         N = pred_tensor.size()[0] # 获取批次大小
-        coo_mask = target_tensor[:,:,:,4] > 0 # 获取target中所有置信度大于0的boolean矩阵
+        coo_mask = target_tensor[:,:,:,4] > 0 # 获取target中所有置信度大于0的boolean矩阵 todo 为什么这里的仅获取第5个维度的置信度大于0
         noo_mask = target_tensor[:,:,:,4] == 0 # 获取target中所有置信度等于0的boolean矩阵
+        # 将得到的bool矩阵维度扩展为target_tensor的维度，todo 这里应该是将最后一个维度扩展为 [2 * [中心点，长宽，置信度], 分类数的one-hot编码]
         coo_mask = coo_mask.unsqueeze(-1).expand_as(target_tensor)
         noo_mask = noo_mask.unsqueeze(-1).expand_as(target_tensor)
 
+        # 从pred_tensor中取出target中所有置信度大于0的预测值
+        # view 展平维度，coo_pred的维度编程(-1, [2 * [中心点，长宽，置信度], 分类数的one-hot编码])
         coo_pred = pred_tensor[coo_mask].view(-1,self.category_count)
+        # 获取所有置信度大于0的预测框（有两个预测框），todo 这里的分类预测是决定两个预测的类型吗？
         box_pred = coo_pred[:,:10].contiguous().view(-1,5) #box[x1,y1,w1,h1,c1]
+        # 获取每个置信度大于0的预测分类
         class_pred = coo_pred[:,10:]                       #[x2,y2,w2,h2,c2]
         
+        # 按照相同的方法从target中获取 预测框（两个）以及预测分类
         coo_target = target_tensor[coo_mask].view(-1,self.category_count)
         box_target = coo_target[:,:10].contiguous().view(-1,5)
         class_target = coo_target[:,10:]
