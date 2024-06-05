@@ -84,7 +84,9 @@ class yoloLoss(nn.Module):
         class_target = coo_target[:,10:]
 
         # compute not contain obj loss
+        # 获取预测pred中所有置信度应该等于0的预测值
         noo_pred = pred_tensor[noo_mask].view(-1,self.category_count)
+        # 获取真实target中所有置信度等于0的预测值
         noo_target = target_tensor[noo_mask].view(-1,self.category_count)
         noo_pred_mask = torch.cuda.BoolTensor(noo_pred.size())
         noo_pred_mask.zero_()
