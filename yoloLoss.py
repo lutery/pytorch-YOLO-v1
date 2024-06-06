@@ -80,7 +80,9 @@ class yoloLoss(nn.Module):
         
         # 按照相同的方法从target中获取 预测框（两个）以及预测分类
         coo_target = target_tensor[coo_mask].view(-1,self.category_count)
+        # box_target是目标预测框的中心点、长宽、置信度,并且进行展平，使得第二维度的含义编程每个预测框的信息，第一维度的信息是所有预测框
         box_target = coo_target[:,:10].contiguous().view(-1,5)
+        # class_target是目标预测框的分类，
         class_target = coo_target[:,10:]
 
         # compute not contain obj loss
@@ -90,17 +92,20 @@ class yoloLoss(nn.Module):
         noo_target = target_tensor[noo_mask].view(-1,self.category_count)
         noo_pred_mask = torch.cuda.BoolTensor(noo_pred.size())
         noo_pred_mask.zero_()
-        noo_pred_mask[:,4]=1;noo_pred_mask[:,9]=1
+        noo_pred_mask[:,4]=1;noo_pred_mask[:,9]=1 # 这里的将4 和 9的位置设置为1，是为了下一步将对应位置的预测置信度以及目标置信度的数据取出来
         noo_pred_c = noo_pred[noo_pred_mask] #noo pred只需要计算 c 的损失 size[-1,2]
         noo_target_c = noo_target[noo_pred_mask]
-        nooobj_loss = F.mse_loss(noo_pred_c,noo_target_c,reduction='sum')
+        nooobj_loss = F.mse_loss(noo_pred_c,noo_target_c,reduction='sum') # 计算第一个损失：不是目标位置的预测框置信度设置为0
 
-        #compute contain obj loss
+        #compute contain obj loss 这里开始计算真实目标的置信度
+        #todo 这两的两个mask的作用是什么
         coo_response_mask = torch.cuda.BoolTensor(box_target.size())
         coo_response_mask.zero_()
         coo_not_response_mask = torch.cuda.BoolTensor(box_target.size())
         coo_not_response_mask.zero_()
+        # todo 这里的iou的作用是什么？
         box_target_iou = torch.zeros(box_target.size()).cuda()
+        # 这里开始遍历所有grid cell，因为每个cell有两个预测框，所以这里range最后一个参数是2
         for i in range(0,box_target.size()[0],2): #choose the best iou box
             box1 = box_pred[i:i+2]
             box1_xyxy = Variable(torch.FloatTensor(box1.size()))
