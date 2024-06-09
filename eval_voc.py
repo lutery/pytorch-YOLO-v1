@@ -5,12 +5,10 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import numpy as np
-VOC_CLASSES = (    # always index 0
-    'aeroplane', 'bicycle', 'bird', 'boat',
-    'bottle', 'bus', 'car', 'cat', 'chair',
-    'cow', 'diningtable', 'dog', 'horse',
-    'motorbike', 'person', 'pottedplant',
-    'sheep', 'sofa', 'train', 'tvmonitor')
+from predict import *
+from collections import defaultdict
+from tqdm import tqdm
+
 Color = [[0, 0, 0],
                     [128, 0, 0],
                     [0, 128, 0],
@@ -134,15 +132,12 @@ def test_eval():
 
 if __name__ == '__main__':
     #test_eval()
-    from predict import *
-    from collections import defaultdict
-    from tqdm import tqdm
 
     target =  defaultdict(list)
     preds = defaultdict(list)
     image_list = [] #image path list
 
-    f = open('voc2007test.txt')
+    f = open('tk100-test.txt')
     lines = f.readlines()
     file_list = []
     for line in lines:
@@ -183,7 +178,7 @@ if __name__ == '__main__':
     model.cuda()
     count = 0
     for image_path in tqdm(image_list):
-        result = predict_gpu(model,image_path,root_path='/home/xzh/data/VOCdevkit/VOC2012/allimgs/') #result[[left_up,right_bottom,class_name,image_path],]
+        result = predict_gpu(model,image_path,root_path=r'F:\Projects\datasets\oc\TK100\data') #result[[left_up,right_bottom,class_name,image_path],]
         for (x1,y1),(x2,y2),class_name,image_id,prob in result: #image_id is actually image_path
             preds[class_name].append([image_id,prob,x1,y1,x2,y2])
         # print(image_path)
