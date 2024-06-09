@@ -182,20 +182,20 @@ if __name__ == '__main__':
         for (x1,y1),(x2,y2),class_name,image_id,prob in result: #image_id is actually image_path
             preds[class_name].append([image_id,prob,x1,y1,x2,y2])
         # print(image_path)
-        # image = cv2.imread('/home/xzh/data/VOCdevkit/VOC2012/allimgs/'+image_path)
-        # for left_up,right_bottom,class_name,_,prob in result:
-        #     color = Color[VOC_CLASSES.index(class_name)]
-        #     cv2.rectangle(image,left_up,right_bottom,color,2)
-        #     label = class_name+str(round(prob,2))
-        #     text_size, baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
-        #     p1 = (left_up[0], left_up[1]- text_size[1])
-        #     cv2.rectangle(image, (p1[0] - 2//2, p1[1] - 2 - baseline), (p1[0] + text_size[0], p1[1] + text_size[1]), color, -1)
-        #     cv2.putText(image, label, (p1[0], p1[1] + baseline), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255), 1, 8)
+        image = cv2.imread(os.path.join(r'F:\Projects\datasets\oc\TK100\data',image_path))
+        for left_up,right_bottom,class_name,_,prob in result:
+            color = Color[VOC_CLASSES.index(class_name) % len(Color)]
+            cv2.rectangle(image,left_up,right_bottom,color,2)
+            label = class_name+str(round(prob,2))
+            text_size, baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+            p1 = (left_up[0], left_up[1]- text_size[1])
+            cv2.rectangle(image, (p1[0] - 2//2, p1[1] - 2 - baseline), (p1[0] + text_size[0], p1[1] + text_size[1]), color, -1)
+            cv2.putText(image, label, (p1[0], p1[1] + baseline), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255), 1, 8)
 
-        # cv2.imwrite('testimg/'+image_path,image)
-        # count += 1
-        # if count == 100:
-        #     break
+        cv2.imwrite('./testimg/'+image_path,image)
+        count += 1
+        if count == 100:
+            break
     
     print('---start evaluate---')
     voc_eval(preds,target,VOC_CLASSES=VOC_CLASSES)
