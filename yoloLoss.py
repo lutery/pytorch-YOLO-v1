@@ -63,27 +63,39 @@ class yoloLoss(nn.Module):
         target_tensor: (tensor) size(batchsize,S,S,self.category_count)
         '''
         N = pred_tensor.size()[0]
+        # 找到第一个预测框的置信度大于0，并返回一个bool 矩阵，标识为True表示置信度大于0
         coo_mask = target_tensor[:,:,:,4] > 0
+        # 找到第一个预测框的置信度等于0，并返回一个bool 矩阵，标识为True表示置信度等于0
         noo_mask = target_tensor[:,:,:,4] == 0
+        # 将以上两个bool矩阵的size扩展到target_tensor的size
         coo_mask = coo_mask.unsqueeze(-1).expand_as(target_tensor)
         noo_mask = noo_mask.unsqueeze(-1).expand_as(target_tensor)
 
+        # 根据真实标签的预测框的位置提取预测tensorf中对应的预测框 todo 作用
         coo_pred = pred_tensor[coo_mask].view(-1,self.category_count)
+        # 提取根据真实标签的预测框的位置提取预测tensorf中对应的预测框的位置信息
         box_pred = coo_pred[:,:10].contiguous().view(-1,5) #box[x1,y1,w1,h1,c1]
+        # 根据真实标签的预测框的位置提取预测tensorf中对应的预测框的类别信息
         class_pred = coo_pred[:,10:]                       #[x2,y2,w2,h2,c2]
         
+        # 按照相同的步骤，从真实tensor中提取预测框的位置和预测框的类别信息 todo 预测框有两个，但是类别信息貌似只有一个，是不是一个grad cell的两个预测框只有一个有效？
         coo_target = target_tensor[coo_mask].view(-1,self.category_count)
         box_target = coo_target[:,:10].contiguous().view(-1,5)
         class_target = coo_target[:,10:]
 
         # compute not contain obj loss
+        # 从预测的tensor和真实tensor中提取目标的预测框的位置信息和类别信息
         noo_pred = pred_tensor[noo_mask].view(-1,self.category_count)
         noo_target = target_tensor[noo_mask].view(-1,self.category_count)
+        # 创建一个size和noo_pred一样的boolean矩阵，并将矩阵的默认值设置为False todo 这个是在做什么？
         noo_pred_mask = torch.cuda.BoolTensor(noo_pred.size())
         noo_pred_mask.zero_()
+        # 将非目标物体的置信度设置为1
         noo_pred_mask[:,4]=1;noo_pred_mask[:,9]=1
+        # todo 这边实在提取非目标物体的置信度信息（预测tensor和真实tensor的）吗？
         noo_pred_c = noo_pred[noo_pred_mask] #noo pred只需要计算 c 的损失 size[-1,2]
         noo_target_c = noo_target[noo_pred_mask]
+        # 这里出现了第一个损失，也就是非目标物体的置信度损失 todo 确认yolov1中是否存在这个损失
         nooobj_loss = F.mse_loss(noo_pred_c,noo_target_c,reduction='sum')
 
         #compute contain obj loss
