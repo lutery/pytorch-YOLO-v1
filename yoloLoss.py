@@ -17,6 +17,7 @@ class yoloLoss(nn.Module):
         param B: todo
         param l_coord： todo
         param l_noobj: todo
+        param category_count: 分类数
         '''
         super(yoloLoss,self).__init__()
         self.S = S
@@ -59,54 +60,71 @@ class yoloLoss(nn.Module):
         return iou
     def forward(self,pred_tensor,target_tensor):
         '''
-        pred_tensor: (tensor) size(batchsize,S,S,Bx5+20=self.category_count) [x,y,w,h,c]
+        pred_tensor: (tensor) size(batchsize,S,S,Bx5+self.category_count) [x,y,w,h,c]
         target_tensor: (tensor) size(batchsize,S,S,self.category_count)
         '''
-        N = pred_tensor.size()[0]
+        N = pred_tensor.size()[0] # 获取批次大小
         # 找到第一个预测框的置信度大于0，并返回一个bool 矩阵，标识为True表示置信度大于0
-        coo_mask = target_tensor[:,:,:,4] > 0
-        # 找到第一个预测框的置信度等于0，并返回一个bool 矩阵，标识为True表示置信度等于0
-        noo_mask = target_tensor[:,:,:,4] == 0
-        # 将以上两个bool矩阵的size扩展到target_tensor的size
+        coo_mask = target_tensor[:,:,:,4] > 0 # 获取target中所有置信度大于0的boolean矩阵 todo 为什么这里的仅获取第5个维度的置信度大于0
+# 找到第一个预测框的置信度等于0，并返回一个bool 矩阵，标识为True表示置信度等于0
+        noo_mask = target_tensor[:,:,:,4] == 0 # 获取target中所有置信度等于0的boolean矩阵
+        # 将得到的bool矩阵维度扩展为target_tensor的维度，todo 这里应该是将最后一个维度扩展为 [2 * [中心点，长宽，置信度], 分类数的one-hot编码]
         coo_mask = coo_mask.unsqueeze(-1).expand_as(target_tensor)
         noo_mask = noo_mask.unsqueeze(-1).expand_as(target_tensor)
 
-        # 根据真实标签的预测框的位置提取预测tensorf中对应的预测框 todo 作用
+        # 从pred_tensor中取出target中所有置信度大于0的预测值
+        # view 展平维度，coo_pred的维度编程(-1, [2 * [中心点，长宽，置信度], 分类数的one-hot编码])
+# 根据真实标签的预测框的位置提取预测tensorf中对应的预测框 todo 作用
         coo_pred = pred_tensor[coo_mask].view(-1,self.category_count)
-        # 提取根据真实标签的预测框的位置提取预测tensorf中对应的预测框的位置信息
+        # 获取所有置信度大于0的预测框（有两个预测框），todo 这里的分类预测是决定两个预测的类型吗？
+# 提取根据真实标签的预测框的位置提取预测tensorf中对应的预测框的位置信息
         box_pred = coo_pred[:,:10].contiguous().view(-1,5) #box[x1,y1,w1,h1,c1]
-        # 根据真实标签的预测框的位置提取预测tensorf中对应的预测框的类别信息
+        # 获取每个置信度大于0的预测分类
+# 根据真实标签的预测框的位置提取预测tensorf中对应的预测框的类别信息
         class_pred = coo_pred[:,10:]                       #[x2,y2,w2,h2,c2]
         
-        # 按照相同的步骤，从真实tensor中提取预测框的位置和预测框的类别信息 todo 预测框有两个，但是类别信息貌似只有一个，是不是一个grad cell的两个预测框只有一个有效？
+        # 按照相同的方法从target中获取 预测框（两个）以及预测分类
         coo_target = target_tensor[coo_mask].view(-1,self.category_count)
+        # box_target是目标预测框的中心点、长宽、置信度,并且进行展平，使得第二维度的含义编程每个预测框的信息，第一维度的信息是所有预测框
+        # 维度信息[batch, gw, gh, 2 * 5], [batch * gw * gh * 2, 5]
         box_target = coo_target[:,:10].contiguous().view(-1,5)
+        # class_target是目标预测框的分类，
+        # 维度信息[batch, gw, gh, categroy_count - 10]
         class_target = coo_target[:,10:]
 
         # compute not contain obj loss
-        # 从预测的tensor和真实tensor中提取目标的预测框的位置信息和类别信息
+# 从预测的tensor和真实tensor中提取目标的预测框的位置信息和类别信息
+        # 获取预测pred中所有置信度应该等于0的预测值
         noo_pred = pred_tensor[noo_mask].view(-1,self.category_count)
+        # 获取真实target中所有置信度等于0的预测值
         noo_target = target_tensor[noo_mask].view(-1,self.category_count)
         # 创建一个size和noo_pred一样的boolean矩阵，并将矩阵的默认值设置为False todo 这个是在做什么？
         noo_pred_mask = torch.cuda.BoolTensor(noo_pred.size())
         noo_pred_mask.zero_()
-        # 将非目标物体的置信度设置为1
-        noo_pred_mask[:,4]=1;noo_pred_mask[:,9]=1
-        # todo 这边实在提取非目标物体的置信度信息（预测tensor和真实tensor的）吗？
+# 将非目标物体的置信度设置为1
+        noo_pred_mask[:,4]=1;noo_pred_mask[:,9]=1 # 这里的将4 和 9的位置设置为1，是为了下一步将对应位置的预测置信度以及目标置信度的数据取出来
+# todo 这边实在提取非目标物体的置信度信息（预测tensor和真实tensor的）吗？
         noo_pred_c = noo_pred[noo_pred_mask] #noo pred只需要计算 c 的损失 size[-1,2]
         noo_target_c = noo_target[noo_pred_mask]
-        # 这里出现了第一个损失，也就是非目标物体的置信度损失 todo 确认yolov1中是否存在这个损失
-        nooobj_loss = F.mse_loss(noo_pred_c,noo_target_c,reduction='sum')
+# 这里出现了第一个损失，也就是非目标物体的置信度损失 todo 确认yolov1中是否存在这个损失
+        nooobj_loss = F.mse_loss(noo_pred_c,noo_target_c,reduction='sum') # 计算第一个损失：不是目标位置的预测框置信度设置为0
 
-        #compute contain obj loss
+        #compute contain obj loss 这里开始计算真实目标的置信度
+        #todo 这两的两个mask的作用是什么
         coo_response_mask = torch.cuda.BoolTensor(box_target.size())
         coo_response_mask.zero_()
         coo_not_response_mask = torch.cuda.BoolTensor(box_target.size())
         coo_not_response_mask.zero_()
+        # todo 这里的iou的作用是什么？
         box_target_iou = torch.zeros(box_target.size()).cuda()
+        # 这里开始遍历所有grid cell，因为每个cell有两个预测框，所以这里range最后一个参数是2
         for i in range(0,box_target.size()[0],2): #choose the best iou box
+            # 获取两个预测框[2, 5]
             box1 = box_pred[i:i+2]
+        #创建一个和box1一样大小的tensor
             box1_xyxy = Variable(torch.FloatTensor(box1.size()))
+            # 将box1的中心点坐标转换为所处网格的内部 todo 这里除以14是否有问题？需要和数据集中的dateset中14对比
+            # todo 确认target中的目标是否一致
             box1_xyxy[:,:2] = box1[:,:2]/14. -0.5*box1[:,2:4]
             box1_xyxy[:,2:4] = box1[:,:2]/14. +0.5*box1[:,2:4]
             box2 = box_target[i].view(-1,5)
