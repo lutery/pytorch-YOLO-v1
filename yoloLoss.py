@@ -28,15 +28,18 @@ class yoloLoss(nn.Module):
 
     def compute_iou(self, box1, box2):
         '''Compute the intersection over union of two set of boxes, each box is [x1,y1,x2,y2].
+        计算两个box的iou，传入的box是[x1,y1,x2,y2]，x1 y1代表左上角，x2 y2代表右下角
         Args:
           box1: (tensor) bounding boxes, sized [N,4].
           box2: (tensor) bounding boxes, sized [M,4].
         Return:
-          (tensor) iou, sized [N,M].
+          (tensor) iou, sized [N,M]. todo N 和M的意义
         '''
-        N = box1.size(0)
-        M = box2.size(0)
+        N = box1.size(0) # 代表有多少个BOX1
+        M = box2.size(0) # 代表有多少个BOX2
 
+        # 为了防止两个box之间的数量不一致，所以这里对其两个box的数量进行扩展，使得两个box的数量一致
+        # todo 为社么要这么扩展对齐两个box
         lt = torch.max(
             box1[:,:2].unsqueeze(1).expand(N,M,2),  # [N,2] -> [N,1,2] -> [N,M,2]
             box2[:,:2].unsqueeze(0).expand(N,M,2),  # [M,2] -> [1,M,2] -> [N,M,2]
@@ -126,12 +129,16 @@ class yoloLoss(nn.Module):
             # 将box1的中心点坐标转换为所处网格的内部 todo 这里除以14是否有问题？需要和数据集中的dateset中14对比
             # todo 确认target中的目标是否一致
             box1_xyxy[:,:2] = box1[:,:2]/14. -0.5*box1[:,2:4]
+            # 将box2的中心点坐标转换为以网格为单位的坐标，应该是目标边框的右下角的坐标 todo 验证
             box1_xyxy[:,2:4] = box1[:,:2]/14. +0.5*box1[:,2:4]
+            # 使用相同的算法获取真实目标的预测框
             box2 = box_target[i].view(-1,5)
             box2_xyxy = Variable(torch.FloatTensor(box2.size()))
             box2_xyxy[:,:2] = box2[:,:2]/14. -0.5*box2[:,2:4]
             box2_xyxy[:,2:4] = box2[:,:2]/14. +0.5*box2[:,2:4]
+            # todo 计算预测框和真实框的iou
             iou = self.compute_iou(box1_xyxy[:,:4],box2_xyxy[:,:4]) #[2,1]
+            # todo max_iou,max_index是什么意思？
             max_iou,max_index = iou.max(0)
             max_index = max_index.data.cuda()
             
