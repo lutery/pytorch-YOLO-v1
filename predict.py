@@ -259,20 +259,21 @@ Color = [[0, 0, 0],
 
 def decoder(pred):
     '''
-    pred (tensor) 1x7x7x30
+    解码网络预测的结果
+    pred (tensor) 1x7x7x30 todo 貌似这里的网络推理得到的是1x14x14x(10 + 分类)
     return (tensor) box[[x1,y1,x2,y2]] label[...]
     '''
     grid_num = 14
     boxes=[]
     cls_indexs=[]
     probs = []
-    cell_size = 1./grid_num
-    pred = pred.data
-    pred = pred.squeeze(0) #7x7x30
-    contain1 = pred[:,:,4].unsqueeze(2)
-    contain2 = pred[:,:,9].unsqueeze(2)
-    contain = torch.cat((contain1,contain2),2)
-    mask1 = contain > 0.1 #大于阈值
+    cell_size = 1./grid_num # 这里的1应该表示整个grid cell的总边长是1 归一化后的 todo 这里计算的单个grid cell的尺寸
+    # pred = pred.data # 
+    pred = pred.squeeze(0) #7x7x30 去掉最低的维度
+    contain1 = pred[:,:,4].unsqueeze(2) # 提取所有grid cell第一个预测框的置信度
+    contain2 = pred[:,:,9].unsqueeze(2) # 提取所有grid cell第二个预测框的置信度
+    contain = torch.cat((contain1,contain2),2) # 结合所有grid cell 两个预测框的置信度
+    mask1 = contain > 0.1 #大于阈值 拿到所有置信度大于0.1的预测框的位置
     mask2 = (contain==contain.max()) #we always select the best contain_prob what ever it>0.9
     mask = (mask1+mask2).gt(0)
     # min_score,min_index = torch.min(contain,2) #每个cell只选最大概率的那个预测框
@@ -377,6 +378,53 @@ def predict_gpu(model,image_name,root_path=''):
         prob = float(prob)
         result.append([(x1,y1),(x2,y2),VOC_CLASSES[cls_index],image_name,prob])
     return result
+
+
+def predict_gpu_opencvimg(model,cv_image):
+    '''
+    通过模型预测一张图片的目标
+
+    param model: yolov1模型
+    cv_Image: 待预测的图片
+
+    return todo
+    '''
+
+    result = []
+    image = cv_image
+    h,w,_ = image.shape
+    # 将原始图片转换为448*448的图片 ，todo 训练的时候图片是否是转换为448*448的图片
+    img = cv2.resize(image,(448,448))
+    img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+    mean = (123,117,104)#RGB
+    # 归一化图片，但是貌似缺少除法操作，todo 确认训练的时候是否也是这样
+    img = img - np.array(mean,dtype=np.float32)
+
+    # todo 合并为transforms里面
+    transform = transforms.Compose([transforms.ToTensor(),])
+    img = transform(img)
+    with torch.no_grad():
+        # 将图片扩展为为批次大小为1的数据
+        img = img[None,:,:,:]
+        img = img.cuda()
+
+        # 进行推理，todo 但是貌似整个网络推理的结果是1x14x14x（10+分类）吧？
+        pred = model(img) #1x7x7x30
+        pred = pred.cpu()
+        boxes,cls_indexs,probs =  decoder(pred)
+
+        for i,box in enumerate(boxes):
+            x1 = int(box[0]*w)
+            x2 = int(box[2]*w)
+            y1 = int(box[1]*h)
+            y2 = int(box[3]*h)
+            cls_index = cls_indexs[i]
+            cls_index = int(cls_index) # convert LongTensor to int
+            prob = probs[i]
+            prob = float(prob)
+            result.append([(x1,y1),(x2,y2),VOC_CLASSES[cls_index],image_name,prob])
+        return result
+        
         
 
 
