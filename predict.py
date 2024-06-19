@@ -264,9 +264,9 @@ def decoder(pred):
     return (tensor) box[[x1,y1,x2,y2]] label[...]
     '''
     grid_num = 14
-    boxes=[]
-    cls_indexs=[]
-    probs = []
+    boxes=[] # 保存检测到的预测框的坐标信息（坐标形式时左上角和右下角的形式）
+    cls_indexs=[] # 预测的类别的索引
+    probs = [] # 类别的置信度
     cell_size = 1./grid_num # 这里的1应该表示整个grid cell的总边长是1 归一化后的 todo 这里计算的单个grid cell的尺寸
     # pred = pred.data # 
     pred = pred.squeeze(0) #7x7x30 去掉最低的维度
@@ -274,9 +274,11 @@ def decoder(pred):
     contain2 = pred[:,:,9].unsqueeze(2) # 提取所有grid cell第二个预测框的置信度
     contain = torch.cat((contain1,contain2),2) # 结合所有grid cell 两个预测框的置信度
     mask1 = contain > 0.1 #大于阈值 拿到所有置信度大于0.1的预测框的位置
-    mask2 = (contain==contain.max()) #we always select the best contain_prob what ever it>0.9
-    mask = (mask1+mask2).gt(0)
+    mask2 = (contain==contain.max()) #we always select the best contain_prob what ever it>0.9 todo 这里是在找到置信度最大的概率的那个预测框的位置 todo 为啥要这么做，是因为有可能置信度的大小小于0.1吗
+    mask = (mask1+mask2).gt(0)# 合并两个mask所找到的预测框的位置信息 todo 运行代码看下效果
     # min_score,min_index = torch.min(contain,2) #每个cell只选最大概率的那个预测框
+    # 遍历所有的预测框
+    # todo 难道这里的每个cell的两个预测框可以分别预测不同的物体吗？
     for i in range(grid_num):
         for j in range(grid_num):
             for b in range(2):
@@ -284,26 +286,36 @@ def decoder(pred):
                 # mask[i,j,index] = 0
                 if mask[i,j,b] == 1:
                     #print(i,j,b)
+                    # 拿到置信度符合要求的预测框
                     box = pred[i,j,b*5:b*5+4]
+                    # 拿到预测框的置信度
                     contain_prob = torch.FloatTensor([pred[i,j,b*5+4]])
+                    # 拿到基于当前cell所在的位置转换为基于整个grid cell所在的坐标位置
                     xy = torch.FloatTensor([j,i])*cell_size #cell左上角  up left of cell
+                    # 根据预测框的位置转换为基于整个grid cell所在的坐标位置 之所以要这么转换，是因为预测框的位置是相对于当前cell的位置的
                     box[:2] = box[:2]*cell_size + xy # return cxcy relative to image
+                    # 将预测框的位置坐标（中心点坐标+预测框尺寸）转换为左上角右下角的坐标形式
                     box_xy = torch.FloatTensor(box.size())#转换成xy形式    convert[cx,cy,w,h] to [x1,xy1,x2,y2]
                     box_xy[:2] = box[:2] - 0.5*box[2:]
                     box_xy[2:] = box[:2] + 0.5*box[2:]
+                    # 拿到预测框的类别以及概率
                     max_prob,cls_index = torch.max(pred[i,j,10:],0)
+                    # 仅处理是否有目标的概率乘以预测物品的类别的概率大于0.1的预测框
                     if float((contain_prob*max_prob)[0]) > 0.1:
                         boxes.append(box_xy.view(1,4))
                         cls_indexs.append(cls_index)
                         probs.append(contain_prob*max_prob)
     if len(boxes) ==0:
+        # 为了保持兼容性，所以当预测框的数量为0的时候，返回一个空的tensor
         boxes = torch.zeros((1,4))
         probs = torch.zeros(1)
         cls_indexs = torch.zeros(1)
     else:
+        # 否则将预测框转换为tensor
         boxes = torch.cat(boxes,0) #(n,4)
         probs = torch.cat(probs,0) #(n,)
         cls_indexs = torch.cat([x.unsqueeze(0) for x in cls_indexs],0) #(n,)
+    # 对于预测框进行nms操作
     keep = nms(boxes,probs)
     return boxes[keep],cls_indexs[keep],probs[keep]
 
