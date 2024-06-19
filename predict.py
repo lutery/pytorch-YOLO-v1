@@ -261,7 +261,7 @@ def decoder(pred):
     '''
     解码网络预测的结果
     pred (tensor) 1x7x7x30 todo 貌似这里的网络推理得到的是1x14x14x(10 + 分类)
-    return (tensor) box[[x1,y1,x2,y2]] label[...]
+    return (tensor) box[[x1,y1,x2,y2]] label[...] 返回预测框的坐标，类别，置信度
     '''
     grid_num = 14
     boxes=[] # 保存检测到的预测框的坐标信息（坐标形式时左上角和右下角的形式）
@@ -321,6 +321,8 @@ def decoder(pred):
 
 def nms(bboxes,scores,threshold=0.5):
     '''
+    对所有的预测框进行nms操作，避免重复检测到同一个物体
+
     bboxes(tensor) [N,4]
     scores(tensor) [N,]
     '''
@@ -328,15 +330,20 @@ def nms(bboxes,scores,threshold=0.5):
     y1 = bboxes[:,1]
     x2 = bboxes[:,2]
     y2 = bboxes[:,3]
+    # 找到所有的预测框的面积
     areas = (x2-x1) * (y2-y1)
 
+    #根据置信度的大小降序排序
+    # order代表排序后的索引，维度和原先的一样，用来查询原先的数据在排序后的位置
     _,order = scores.sort(0,descending=True)
-    keep = []
+    keep = []  # 存储最后保留的预测框的索引
     while order.numel() > 0:
         if order.numel() == 1:
+            # 如果只有一个预测框那就没有必要进行nms操作了直接返回
             keep.append(order.item())
             break
-
+        
+        # 处理现在最高置信度的预测框
         i = order[0].item()
         keep.append(i)
 
