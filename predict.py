@@ -325,6 +325,8 @@ def nms(bboxes,scores,threshold=0.5):
 
     bboxes(tensor) [N,4]
     scores(tensor) [N,]
+
+    reture:返回最后保留预测框的索引，索引的维度是和boxes一致
     '''
     x1 = bboxes[:,0]
     y1 = bboxes[:,1]
@@ -347,22 +349,33 @@ def nms(bboxes,scores,threshold=0.5):
         i = order[0].item()
         keep.append(i)
 
-        
-
+        # 将剩余的预测框和当前最高置信度的预测框进行比较，如果有重叠的部分就去掉
+        # 这里的去掉逻辑采用的是使用clamp函数，进行对比，例如：如果剩余的部分的左上角的坐标有小于x1[i]或者小于y1[i]或者大于x2[i]或者大于y2[i]的
+        # 部分就去掉，使用x1 y1 x2 y2替换剩余预测框的坐标。
+        # 并将替换得到的坐标返回到xx1 yy1 xx2 yy2
         xx1 = x1[order[1:]].clamp(min=x1[i])
         yy1 = y1[order[1:]].clamp(min=y1[i])
         xx2 = x2[order[1:]].clamp(max=x2[i])
         yy2 = y2[order[1:]].clamp(max=y2[i])
 
+        # 计算剩余预测框中的重叠部分的面积
         w = (xx2-xx1).clamp(min=0)
         h = (yy2-yy1).clamp(min=0)
         inter = w*h
 
+        # 计算剩余预测框与当前预测框的交际和并集之间的重叠比例
         ovr = inter / (areas[i] + areas[order[1:]] - inter)
+        # 找到重叠比例小于阈值的预测框的索引
+        # 如果没有说明剩余预测框的所有预测框都与当前预测框的重叠比例较大，说明剩余预测框都是预测同一个物体，则不需要继续进行nms操作
+        # 直接返回
+        # 如果有则继续进行bms操作
+        # 并且通过ovr<=threshold得到重叠区域小于阈值的索引
         ids = (ovr<=threshold).nonzero().squeeze()
         if ids.numel() == 0:
             break
+        # 根据索引提取剩余重叠区域小的预测框继续进行nms操作
         order = order[ids+1]
+    # 返回最后保留的预测框的索引
     return torch.LongTensor(keep)
 #
 #start predict one image
