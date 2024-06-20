@@ -64,7 +64,7 @@ if __name__ == '__main__':
         result = predict_gpu_opencvimg(model, frame)
         for left_up,right_bottom,class_name,_,prob in result:
             color = Color[VOC_CLASSES.index(class_name) % len(Color)]
-            cv2.rectangle(imaframege,left_up,right_bottom,color,2)
+            cv2.rectangle(frame,left_up,right_bottom,color,2)
             label = class_name+str(round(prob,2))
             text_size, baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
             p1 = (left_up[0], left_up[1]- text_size[1])
