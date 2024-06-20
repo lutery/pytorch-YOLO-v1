@@ -317,6 +317,7 @@ def decoder(pred):
         cls_indexs = torch.cat([x.unsqueeze(0) for x in cls_indexs],0) #(n,)
     # 对于预测框进行nms操作
     keep = nms(boxes,probs)
+    # 从nms返回的预测框索引中，提取对应的预测框、预测类型、置信度
     return boxes[keep],cls_indexs[keep],probs[keep]
 
 def nms(bboxes,scores,threshold=0.5):
@@ -445,6 +446,7 @@ def predict_gpu_opencvimg(model,cv_image):
         pred = pred.cpu()
         boxes,cls_indexs,probs =  decoder(pred)
 
+        # 遍历每个预测框，将预测框的位置（相对于图片的位置）、类别、置信度保存到result中
         for i,box in enumerate(boxes):
             x1 = int(box[0]*w)
             x2 = int(box[2]*w)
