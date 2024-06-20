@@ -456,7 +456,7 @@ def predict_gpu_opencvimg(model,cv_image):
             cls_index = int(cls_index) # convert LongTensor to int
             prob = probs[i]
             prob = float(prob)
-            result.append([(x1,y1),(x2,y2),VOC_CLASSES[cls_index],image_name,prob])
+            result.append([(x1,y1),(x2,y2),VOC_CLASSES[cls_index],prob])
         return result
         
         

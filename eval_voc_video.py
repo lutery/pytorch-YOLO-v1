@@ -49,20 +49,20 @@ if __name__ == '__main__':
     model.eval()
     model.cuda()
 
-    cap = cv2.VideoCapture("D:\Projects\datasets\oc\TK100\data\test.mp4")
+    cap = cv2.VideoCapture(r"F:\Projects\datasets\oc\交通视频\裁剪5分钟.mp4")
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    out = cv2.VideoWriter("D:\Projects\datasets\oc\TK100\data\test-result.mp4", fourcc, 30, (width, height))
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(r"F:\Projects\datasets\oc\交通视频\裁剪5分钟-result.mp4", fourcc, 24, (width, height))
 
     while (cap.isOpened()):
         ret, frame = cap.read()
         if not ret:
             break
-
+        # todo 缺少将视频帧转换为合适的尺寸
         result = predict_gpu_opencvimg(model, frame)
-        for left_up,right_bottom,class_name,_,prob in result:
+        for left_up,right_bottom,class_name,prob in result:
             color = Color[VOC_CLASSES.index(class_name) % len(Color)]
             cv2.rectangle(frame,left_up,right_bottom,color,2)
             label = class_name+str(round(prob,2))
@@ -75,5 +75,4 @@ if __name__ == '__main__':
     
     cap.release()
     out.release()
-    cv2.destroyAllWindows()
     print('---start evaluate---')
